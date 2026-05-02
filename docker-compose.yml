@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=Your_Password123
+    ports:
+      - "1433:1433"
+    volumes:
+      - sql-data:/var/opt/mssql
+
+  api:
+    build: .
+    ports:
+      - "5000:8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=db;Database=EmployeeDB;User Id=sa;Password=Your_Password123;TrustServerCertificate=True;
+    depends_on:
+      - db
+
+  db-init:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - db
+    volumes:
+      - ./init.sql:/init.sql
+    command: >
+      /bin/bash -c "
+      until /opt/mssql-tools/bin/sqlcmd -S db -U sa -P Your_Password123 -Q 'SELECT 1' > /dev/null 2>&1; do
+        echo 'Waiting for SQL Server to become available...';
+        sleep 2;
+      done;
+      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P Your_Password123 -i /init.sql;
+      echo 'Database initialized.';
+      "
+
+volumes:
+  sql-data:
